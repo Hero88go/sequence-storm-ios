@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SEQUENCE STORM — Memory Challenge</title>
+<meta name="description" content="Test your memory in this electric Simon Says challenge. Daily puzzles and endless mode.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #2d7ff9;
+  --yellow: #ffe94a;
+  --purple: #8b5cf6;
+  --red: #ef4444;
+  --green: #10b981;
+  --orange: #f97316;
+  --bg: #06080f;
+  --bg2: #0c1018;
+  --bg3: #141824;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --pad-size: min(28vw, 140px);
+  --grid-gap: 12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* CRT Scanlines */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Lightning canvas */
+#lightning-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Particle canvas */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Screen shake */
+body.shake {
+  animation: shakeAnim 0.4s ease-out;
+}
+@keyframes shakeAnim {
+  0%, 100% { transform: translate(0); }
+  10% { transform: translate(-6px, 3px); }
+  20% { transform: translate(5px, -4px); }
+  30% { transform: translate(-4px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  50% { transform: translate(-2px, 1px); }
+}
+
+.reduced-motion body.shake { animation: none !important; }
+
+/* Screens */
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+  position: relative;
+  z-index: 5;
+}
+.screen.active { display: flex; }
+
+/* Title screen */
+#title-screen { gap: 24px; justify-content: center; min-height: 100vh; }
+
+.title-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 8vw, 3.2rem);
+  text-align: center;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--blue), var(--purple), var(--yellow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(45,127,249,0.5));
+  animation: titlePulse 3s ease-in-out infinite;
+}
+@keyframes titlePulse {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(45,127,249,0.4)); }
+  50% { filter: drop-shadow(0 0 35px rgba(139,92,246,0.6)); }
+}
+
+.title-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.mode-buttons { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+
+.mode-btn {
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 16px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mode-btn:hover, .mode-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+  box-shadow: 0 4px 20px rgba(45,127,249,0.2);
+}
+.mode-btn .mode-icon { font-size: 1.4rem; }
+.mode-btn .mode-desc {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.mode-btn-inner { display: flex; flex-direction: column; }
+
+.title-stats {
+  display: flex; gap: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.title-stats span { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.title-stats .stat-val { color: var(--yellow); font-size: 1.1rem; font-weight: 700; }
+
+.title-bottom {
+  display: flex; gap: 16px; margin-top: 8px;
+}
+.icon-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-dim);
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.icon-btn:hover { border-color: var(--blue); color: var(--text); }
+
+/* Game screen */
+#game-screen { gap: 16px; justify-content: center; min-height: 100vh; }
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 360px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+.hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hud-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.hud-val { font-weight: 700; font-size: 1.1rem; }
+.hud-val.lives { color: var(--red); }
+.hud-val.level { color: var(--blue); }
+.hud-val.score { color: var(--yellow); }
+.hud-val.timer { color: var(--orange); }
+
+.game-status {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  color: var(--text-dim);
+}
+.game-status.watching { color: var(--yellow); }
+.game-status.your-turn { color: var(--green); }
+.game-status.wrong { color: var(--red); }
+
+/* Pad grid */
+.pad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, var(--pad-size));
+  gap: var(--grid-gap);
+  transition: all 0.4s ease;
+}
+.pad-grid.six-pads {
+  grid-template-columns: repeat(3, var(--pad-size));
+}
+
+.pad {
+  width: var(--pad-size);
+  height: var(--pad-size);
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.pad:active { transform: scale(0.95); }
+
+.pad .pad-symbol {
+  font-size: 2rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.colorblind-mode .pad .pad-symbol { opacity: 0.7; }
+
+.pad.lit .pad-symbol { opacity: 1; }
+
+/* Pad colors — dim state */
+.pad[data-pad="0"] { background: rgba(45,127,249,0.18); }
+.pad[data-pad="1"] { background: rgba(255,233,74,0.18); }
+.pad[data-pad="2"] { background: rgba(139,92,246,0.18); }
+.pad[data-pad="3"] { background: rgba(239,68,68,0.18); }
+.pad[data-pad="4"] { background: rgba(16,185,129,0.18); }
+.pad[data-pad="5"] { background: rgba(249,115,22,0.18); }
+
+/* Pad colors — lit state */
+.pad[data-pad="0"].lit {
+  background: var(--blue);
+  box-shadow: 0 0 30px var(--blue), 0 0 60px rgba(45,127,249,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+.pad[data-pad="1"].lit {
+  background: var(--yellow);
+  box-shadow: 0 0 30px var(--yellow), 0 0 60px rgba(255,233,74,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+.pad[data-pad="2"].lit {
+  background: var(--purple);
+  box-shadow: 0 0 30px var(--purple), 0 0 60px rgba(139,92,246,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+.pad[data-pad="3"].lit {
+  background: var(--red);
+  box-shadow: 0 0 30px var(--red), 0 0 60px rgba(239,68,68,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+.pad[data-pad="4"].lit {
+  background: var(--green);
+  box-shadow: 0 0 30px var(--green), 0 0 60px rgba(16,185,129,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+.pad[data-pad="5"].lit {
+  background: var(--orange);
+  box-shadow: 0 0 30px var(--orange), 0 0 60px rgba(249,115,22,0.3), inset 0 0 20px rgba(255,255,255,0.15);
+}
+
+.pad.flash-wrong {
+  animation: wrongFlash 0.15s ease 3;
+}
+@keyframes wrongFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Sequence dots */
+.seq-dots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 360px;
+  min-height: 20px;
+}
+.seq-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  transition: all 0.2s;
+}
+.seq-dot.done { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.seq-dot.current { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); transform: scale(1.3); }
+.seq-dot.wrong { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* Result screen */
+#result-screen { gap: 20px; justify-content: center; min-height: 100vh; }
+
+.result-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.6rem;
+  text-align: center;
+}
+.result-title.victory { color: var(--yellow); }
+.result-title.defeat { color: var(--red); }
+
+.result-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+}
+.result-stat {
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.result-stat .rs-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.result-stat .rs-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.result-emoji {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  background: var(--bg3);
+  padding: 12px 16px;
+  border-radius: 10px;
+  text-align: center;
+  line-height: 1.6;
+  word-break: break-all;
+  max-width: 340px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.result-buttons { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  color: #fff;
+  border: none;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 14px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(45,127,249,0.3); }
+
+.btn-secondary {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { border-color: var(--blue); }
+
+.share-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--green);
+  color: #000;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: 8px;
+  z-index: 100;
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+}
+.share-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Settings overlay */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(6,8,15,0.92);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.active { display: flex; }
+
+.settings-panel {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 28px;
+  width: 90%;
+  max-width: 360px;
+}
+.settings-panel h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label {
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+/* Toggle switch */
+.toggle {
+  width: 48px; height: 26px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: none;
+  padding: 0;
+}
+.toggle.on { background: var(--blue); }
+.toggle::after {
+  content: '';
+  width: 20px; height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(22px); }
+
+.settings-close {
+  margin-top: 20px;
+  width: 100%;
+}
+
+/* Combo pop */
+.combo-pop {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 2rem;
+  color: var(--yellow);
+  text-shadow: 0 0 20px var(--yellow);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: none;
+}
+.combo-pop.show {
+  animation: comboPop 0.8s ease-out forwards;
+}
+@keyframes comboPop {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  100% { transform: translate(-50%, -70%) scale(1); opacity: 0; }
+}
+
+/* How to play overlay */
+.how-panel {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 28px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.how-panel h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  color: var(--yellow);
+}
+.how-panel p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.how-panel strong { color: var(--text); }
+.how-panel .key-hint {
+  display: inline-block;
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+}
+
+/* Daily complete badge */
+.daily-done-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--green);
+  display: none;
+}
+.daily-done-badge.show { display: inline; }
+
+/* Responsive */
+@media (max-width: 380px) {
+  :root { --pad-size: 26vw; }
+  .title-logo { font-size: 1.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  body.shake { animation: none !important; }
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<canvas id="lightning-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen" class="screen active">
+  <div class="title-logo">SEQUENCE<br>STORM</div>
+  <div class="title-sub">Memory Challenge</div>
+
+  <div class="title-stats">
+    <span><span class="stat-val" id="stat-best">0</span>Best</span>
+    <span><span class="stat-val" id="stat-streak">0</span>Streak</span>
+    <span><span class="stat-val" id="stat-games">0</span>Games</span>
+  </div>
+
+  <div class="mode-buttons">
+    <button class="mode-btn" id="btn-daily" onclick="startGame('daily')">
+      <span class="mode-icon">&#9889;</span>
+      <span class="mode-btn-inner">
+        <span>Daily Challenge</span>
+        <span class="mode-desc">Same puzzle for everyone. 1 life. <span class="daily-done-badge" id="daily-badge">DONE</span></span>
+      </span>
+    </button>
+    <button class="mode-btn" id="btn-endless" onclick="startGame('endless')">
+      <span class="mode-icon">&#8734;</span>
+      <span class="mode-btn-inner">
+        <span>Endless</span>
+        <span class="mode-desc">3 lives. How far can you go?</span>
+      </span>
+    </button>
+  </div>
+
+  <div class="title-bottom">
+    <button class="icon-btn" onclick="showHow()" title="How to Play" aria-label="How to Play">?</button>
+    <button class="icon-btn" onclick="showSettings()" title="Settings" aria-label="Settings">&#9881;</button>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div class="hud">
+    <div class="hud-item"><span class="hud-label">Level</span><span class="hud-val level" id="hud-level">1</span></div>
+    <div class="hud-item"><span class="hud-label">Score</span><span class="hud-val score" id="hud-score">0</span></div>
+    <div class="hud-item" id="hud-lives-wrap"><span class="hud-label">Lives</span><span class="hud-val lives" id="hud-lives">3</span></div>
+  </div>
+
+  <div class="game-status" id="game-status">Watch...</div>
+
+  <div class="seq-dots" id="seq-dots"></div>
+
+  <div class="pad-grid" id="pad-grid">
+    <button class="pad" data-pad="0" aria-label="Blue pad"><span class="pad-symbol">&#9670;</span></button>
+    <button class="pad" data-pad="1" aria-label="Yellow pad"><span class="pad-symbol">&#9733;</span></button>
+    <button class="pad" data-pad="2" aria-label="Purple pad"><span class="pad-symbol">&#9650;</span></button>
+    <button class="pad" data-pad="3" aria-label="Red pad"><span class="pad-symbol">&#9679;</span></button>
+    <button class="pad" data-pad="4" aria-label="Green pad"><span class="pad-symbol">&#11045;</span></button>
+    <button class="pad" data-pad="5" aria-label="Orange pad"><span class="pad-symbol">&#10070;</span></button>
+  </div>
+
+  <button class="btn-secondary" style="margin-top:16px;font-size:0.75rem;padding:8px 16px;" onclick="backToTitle()">&#8592; Quit</button>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen" class="screen">
+  <div class="result-title" id="result-title">Game Over</div>
+
+  <div class="result-stats" id="result-stats"></div>
+
+  <div class="result-emoji" id="result-emoji"></div>
+
+  <div class="result-buttons">
+    <button class="btn-primary" id="btn-share" onclick="shareResult()">&#9889; Share Result</button>
+    <button class="btn-secondary" id="btn-challenge" onclick="challengeFriend()">Challenge a Friend</button>
+    <button class="btn-secondary" onclick="playAgain()">Play Again</button>
+    <button class="btn-secondary" onclick="backToTitle()">Back to Menu</button>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div id="settings-overlay" class="overlay">
+  <div class="settings-panel">
+    <h2>&#9881; Settings</h2>
+    <div class="setting-row">
+      <span class="setting-label">Sound</span>
+      <button class="toggle on" id="toggle-sound" onclick="toggleSetting('sound')" aria-label="Toggle sound"></button>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Color Blind Mode</span>
+      <button class="toggle" id="toggle-colorblind" onclick="toggleSetting('colorblind')" aria-label="Toggle color blind mode"></button>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Reduced Motion</span>
+      <button class="toggle" id="toggle-motion" onclick="toggleSetting('motion')" aria-label="Toggle reduced motion"></button>
+    </div>
+    <button class="btn-secondary settings-close" onclick="hideSettings()">Close</button>
+  </div>
+</div>
+
+<!-- HOW TO PLAY OVERLAY -->
+<div id="how-overlay" class="overlay">
+  <div class="how-panel">
+    <h2>&#9889; How to Play</h2>
+    <p><strong>Watch</strong> the pads light up in sequence. Then <strong>repeat</strong> the sequence from memory by clicking or tapping the pads.</p>
+    <p>Each round adds <strong>one more step</strong> to the sequence. The playback speeds up as you progress. At <strong>level 8</strong>, two extra pads unlock!</p>
+    <p><strong>Daily Challenge:</strong> Same sequence for everyone. 1 life. Share your score!</p>
+    <p><strong>Endless:</strong> 3 lives. How far can you go?</p>
+    <p><strong>Keyboard:</strong> Press <span class="key-hint">1</span>-<span class="key-hint">6</span> for pads. <span class="key-hint">Esc</span> to quit.</p>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="hideHow()">Got it!</button>
+  </div>
+</div>
+
+<!-- COMBO POP -->
+<div class="combo-pop" id="combo-pop"></div>
+
+<!-- SHARE TOAST -->
+<div class="share-toast" id="share-toast">Copied to clipboard!</div>
+
+<script>
+// ===================== SEEDED RNG =====================
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function getDaySeed() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function getDayNumber() {
+  const start = new Date(2024, 0, 1);
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.floor((now - start) / 86400000);
+}
+
+// ===================== STORAGE =====================
+const KEYS = {
+  stats: 'ss_stats',
+  daily: 'ss_daily',
+  settings: 'ss_settings'
+};
+
+function loadStats() {
+  try { return JSON.parse(localStorage.getItem(KEYS.stats)) || { best: 0, streak: 0, games: 0, lastDaily: '' }; }
+  catch { return { best: 0, streak: 0, games: 0, lastDaily: '' }; }
+}
+function saveStats(s) { localStorage.setItem(KEYS.stats, JSON.stringify(s)); }
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(KEYS.settings)) || { sound: true, colorblind: false, motion: false }; }
+  catch { return { sound: true, colorblind: false, motion: false }; }
+}
+function saveSettings(s) { localStorage.setItem(KEYS.settings, JSON.stringify(s)); }
+
+function loadDailyResult() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEYS.daily));
+    if (d && d.day === getDayNumber()) return d;
+    return null;
+  } catch { return null; }
+}
+function saveDailyResult(r) {
+  r.day = getDayNumber();
+  localStorage.setItem(KEYS.daily, JSON.stringify(r));
+}
+
+// ===================== AUDIO =====================
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+const PAD_FREQS = [261.63, 329.63, 392.00, 523.25, 587.33, 659.25];
+
+function playTone(padIdx, duration = 0.25) {
+  if (!settings.sound) return;
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = PAD_FREQS[padIdx];
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function playSuccess() {
+  if (!settings.sound) return;
+  const ctx = getAudioCtx();
+  [523.25, 659.25, 783.99].forEach((f, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = f;
+    gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.3);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + i * 0.1);
+    osc.stop(ctx.currentTime + i * 0.1 + 0.3);
+  });
+}
+
+function playFail() {
+  if (!settings.sound) return;
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 120;
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.5);
+}
+
+function playLevelUp() {
+  if (!settings.sound) return;
+  const ctx = getAudioCtx();
+  [440, 554.37, 659.25, 880].forEach((f, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = f;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.08 + 0.2);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + i * 0.08);
+    osc.stop(ctx.currentTime + i * 0.08 + 0.2);
+  });
+}
+
+// ===================== PARTICLES =====================
+const particleCanvas = document.getElementById('particle-canvas');
+const pCtx = particleCanvas.getContext('2d');
+let particles = [];
+
+function resizeParticleCanvas() {
+  particleCanvas.width = window.innerWidth;
+  particleCanvas.height = window.innerHeight;
+}
+resizeParticleCanvas();
+window.addEventListener('resize', resizeParticleCanvas);
+
+function spawnParticles(x, y, color, count = 20) {
+  if (settings.motion) return;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const speed = 2 + Math.random() * 4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.02,
+      size: 2 + Math.random() * 4,
+      color
+    });
+  }
+}
+
+function updateParticles() {
+  pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= p.decay;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    pCtx.globalAlpha = p.life;
+    pCtx.fillStyle = p.color;
+    pCtx.beginPath();
+    pCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    pCtx.fill();
+  }
+  pCtx.globalAlpha = 1;
+  requestAnimationFrame(updateParticles);
+}
+updateParticles();
+
+// ===================== LIGHTNING BG =====================
+const lCanvas = document.getElementById('lightning-canvas');
+const lCtx = lCanvas.getContext('2d');
+let bolts = [];
+
+function resizeLightning() {
+  lCanvas.width = window.innerWidth;
+  lCanvas.height = window.innerHeight;
+}
+resizeLightning();
+window.addEventListener('resize', resizeLightning);
+
+function createBolt() {
+  if (settings.motion) return;
+  const x = Math.random() * lCanvas.width;
+  const segments = [];
+  let cx = x, cy = 0;
+  while (cy < lCanvas.height * (0.3 + Math.random() * 0.5)) {
+    const nx = cx + (Math.random() - 0.5) * 60;
+    const ny = cy + 10 + Math.random() * 20;
+    segments.push({ x1: cx, y1: cy, x2: nx, y2: ny });
+    cx = nx; cy = ny;
+  }
+  bolts.push({ segments, life: 1, decay: 0.03 + Math.random() * 0.03 });
+}
+
+function updateLightning() {
+  lCtx.clearRect(0, 0, lCanvas.width, lCanvas.height);
+  // Ambient gradient
+  const grad = lCtx.createRadialGradient(lCanvas.width/2, lCanvas.height/2, 0, lCanvas.width/2, lCanvas.height/2, lCanvas.width * 0.7);
+  grad.addColorStop(0, 'rgba(45,127,249,0.02)');
+  grad.addColorStop(1, 'transparent');
+  lCtx.fillStyle = grad;
+  lCtx.fillRect(0, 0, lCanvas.width, lCanvas.height);
+
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i];
+    b.life -= b.decay;
+    if (b.life <= 0) { bolts.splice(i, 1); continue; }
+    lCtx.globalAlpha = b.life * 0.3;
+    lCtx.strokeStyle = '#8b5cf6';
+    lCtx.lineWidth = 1.5;
+    lCtx.shadowColor = '#8b5cf6';
+    lCtx.shadowBlur = 15;
+    lCtx.beginPath();
+    b.segments.forEach(s => { lCtx.moveTo(s.x1, s.y1); lCtx.lineTo(s.x2, s.y2); });
+    lCtx.stroke();
+    lCtx.shadowBlur = 0;
+  }
+  lCtx.globalAlpha = 1;
+
+  if (Math.random() < 0.008) createBolt();
+  requestAnimationFrame(updateLightning);
+}
+updateLightning();
+
+// ===================== GAME STATE =====================
+let settings = loadSettings();
+let stats = loadStats();
+let gameMode = 'endless';
+let sequence = [];
+let playerIndex = 0;
+let level = 1;
+let score = 0;
+let lives = 3;
+let padCount = 4;
+let isPlaying = false; // sequence playback
+let isPlayerTurn = false;
+let gameOver = false;
+let rng = Math.random;
+let lastResultText = '';
+let lastSeed = 0;
+let comboCount = 0;
+
+const PAD_COLORS_HEX = ['#2d7ff9', '#ffe94a', '#8b5cf6', '#ef4444', '#10b981', '#f97316'];
+const PAD_EMOJIS = ['\u{1F7E6}', '\u{1F7E1}', '\u{1F7E3}', '\u{1F534}', '\u{1F7E2}', '\u{1F7E0}'];
+
+const $ = id => document.getElementById(id);
+const pads = () => document.querySelectorAll('.pad');
+const padGrid = $('pad-grid');
+
+// ===================== INIT =====================
+function init() {
+  applySettings();
+  updateTitleStats();
+  checkDailyDone();
+  checkURLChallenge();
+}
+
+function applySettings() {
+  $('toggle-sound').classList.toggle('on', settings.sound);
+  $('toggle-colorblind').classList.toggle('on', settings.colorblind);
+  $('toggle-motion').classList.toggle('on', settings.motion);
+  document.body.classList.toggle('colorblind-mode', settings.colorblind);
+  document.documentElement.classList.toggle('reduced-motion', settings.motion);
+}
+
+function updateTitleStats() {
+  $('stat-best').textContent = stats.best;
+  $('stat-streak').textContent = stats.streak;
+  $('stat-games').textContent = stats.games;
+}
+
+function checkDailyDone() {
+  const dr = loadDailyResult();
+  $('daily-badge').classList.toggle('show', !!dr);
+}
+
+function checkURLChallenge() {
+  const params = new URLSearchParams(window.location.search);
+  const seed = params.get('challenge');
+  if (seed) {
+    lastSeed = parseInt(seed);
+    startGame('challenge');
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+// ===================== SCREENS =====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function backToTitle() {
+  gameOver = true;
+  isPlayerTurn = false;
+  isPlaying = false;
+  showScreen('title-screen');
+  updateTitleStats();
+  checkDailyDone();
+}
+
+// ===================== SETTINGS =====================
+function showSettings() { $('settings-overlay').classList.add('active'); }
+function hideSettings() { $('settings-overlay').classList.remove('active'); }
+function showHow() { $('how-overlay').classList.add('active'); }
+function hideHow() { $('how-overlay').classList.remove('active'); }
+
+function toggleSetting(key) {
+  settings[key] = !settings[key];
+  saveSettings(settings);
+  applySettings();
+}
+
+// ===================== START GAME =====================
+function startGame(mode) {
+  // Daily: check if already done
+  if (mode === 'daily') {
+    const dr = loadDailyResult();
+    if (dr) {
+      showResult(dr.level, dr.score, 'daily', dr.emoji);
+      return;
+    }
+  }
+
+  gameMode = mode;
+  sequence = [];
+  playerIndex = 0;
+  level = 1;
+  score = 0;
+  comboCount = 0;
+  gameOver = false;
+  isPlaying = false;
+  isPlayerTurn = false;
+  padCount = 4;
+
+  if (mode === 'daily') {
+    rng = mulberry32(getDaySeed());
+    lives = 1;
+    lastSeed = getDaySeed();
+  } else if (mode === 'challenge') {
+    rng = mulberry32(lastSeed);
+    lives = 1;
+  } else if (mode === 'endless') {
+    rng = Math.random;
+    lives = 3;
+  }
+
+  setupPadGrid();
+  updateHUD();
+  showScreen('game-screen');
+
+  setTimeout(() => nextLevel(), 600);
+}
+
+function setupPadGrid() {
+  const grid = padGrid;
+  const padEls = Array.from(pads());
+
+  if (padCount <= 4) {
+    grid.classList.remove('six-pads');
+    padEls[4].classList.add('hidden');
+    padEls[5].classList.add('hidden');
+  } else {
+    grid.classList.add('six-pads');
+    padEls[4].classList.remove('hidden');
+    padEls[5].classList.remove('hidden');
+  }
+}
+
+function expandTo6() {
+  if (padCount >= 6) return;
+  padCount = 6;
+  const padEls = Array.from(pads());
+  padGrid.classList.add('six-pads');
+  padEls[4].classList.remove('hidden');
+  padEls[5].classList.remove('hidden');
+}
+
+// ===================== GAME LOGIC =====================
+function nextLevel() {
+  if (gameOver) return;
+
+  // Expand at level 8
+  if (level >= 8 && padCount < 6) expandTo6();
+
+  // Add one more step each level
+  const nextPad = Math.floor(rng() * padCount);
+  sequence.push(nextPad);
+
+  updateHUD();
+  renderDots();
+  playerIndex = 0;
+  playSequence();
+}
+
+function getPlaybackSpeed() {
+  // ms per step, gets faster
+  return Math.max(250, 550 - level * 20);
+}
+
+async function playSequence() {
+  isPlaying = true;
+  isPlayerTurn = false;
+  setStatus('Watch...', 'watching');
+
+  const speed = getPlaybackSpeed();
+  await sleep(400);
+
+  for (let i = 0; i < sequence.length; i++) {
+    if (gameOver) return;
+    lightPad(sequence[i], speed * 0.7);
+    playTone(sequence[i], speed * 0.7 / 1000);
+    await sleep(speed);
+  }
+
+  isPlaying = false;
+  isPlayerTurn = true;
+  setStatus('Your turn!', 'your-turn');
+}
+
+function lightPad(idx, duration = 200) {
+  const pad = document.querySelector(`.pad[data-pad="${idx}"]`);
+  if (!pad) return;
+  pad.classList.add('lit');
+  setTimeout(() => pad.classList.remove('lit'), duration);
+}
+
+function handlePadPress(idx) {
+  if (!isPlayerTurn || isPlaying || gameOver) return;
+  if (idx >= padCount) return;
+
+  const pad = document.querySelector(`.pad[data-pad="${idx}"]`);
+  const rect = pad.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  lightPad(idx, 200);
+  playTone(idx, 0.2);
+
+  if (sequence[playerIndex] === idx) {
+    // Correct
+    markDot(playerIndex, 'done');
+    playerIndex++;
+    comboCount++;
+    score += level * 10 + comboCount;
+
+    // Particle burst
+    spawnParticles(cx, cy, PAD_COLORS_HEX[idx], 15);
+
+    updateHUD();
+
+    if (playerIndex >= sequence.length) {
+      // Level complete
+      isPlayerTurn = false;
+      playLevelUp();
+
+      level++;
+      if (level % 5 === 0) showCombo('LEVEL ' + level);
+      setTimeout(() => nextLevel(), 800);
+    }
+  } else {
+    // Wrong
+    markDot(playerIndex, 'wrong');
+    playFail();
+    comboCount = 0;
+    setStatus('Wrong!', 'wrong');
+    pad.classList.add('flash-wrong');
+    setTimeout(() => pad.classList.remove('flash-wrong'), 500);
+
+    if (!settings.motion) document.body.classList.add('shake');
+    setTimeout(() => document.body.classList.remove('shake'), 400);
+
+    lives--;
+    updateHUD();
+
+    if (lives <= 0) {
+      isPlayerTurn = false;
+      setTimeout(() => endGame(), 600);
+    } else {
+      // Replay sequence
+      isPlayerTurn = false;
+      setTimeout(() => {
+        playerIndex = 0;
+        renderDots();
+        playSequence();
+      }, 1000);
+    }
+  }
+}
+
+function endGame() {
+  gameOver = true;
+
+  const finalLevel = level - 1;
+  const emoji = buildEmoji(finalLevel);
+
+  // Update stats
+  stats.games++;
+  if (finalLevel > stats.best) stats.best = finalLevel;
+
+  if (gameMode === 'daily') {
+    const today = getDayNumber().toString();
+    if (stats.lastDaily && parseInt(stats.lastDaily) === getDayNumber() - 1) {
+      stats.streak++;
+    } else if (stats.lastDaily !== today) {
+      stats.streak = 1;
+    }
+    stats.lastDaily = today;
+    saveDailyResult({ level: finalLevel, score, emoji, day: getDayNumber() });
+  }
+
+  saveStats(stats);
+  showResult(finalLevel, score, gameMode, emoji);
+}
+
+function showResult(finalLevel, finalScore, mode, emoji) {
+  showScreen('result-screen');
+
+  const title = $('result-title');
+  title.textContent = finalLevel >= 15 ? 'LEGENDARY!' : finalLevel >= 10 ? 'AMAZING!' : finalLevel >= 5 ? 'NICE TRY!' : 'GAME OVER';
+  title.className = 'result-title ' + (finalLevel >= 5 ? 'victory' : 'defeat');
+
+  let statsHTML = `
+    <div class="result-stat"><div class="rs-label">Level</div><div class="rs-val" style="color:var(--blue)">${finalLevel}</div></div>
+    <div class="result-stat"><div class="rs-label">Score</div><div class="rs-val" style="color:var(--yellow)">${finalScore}</div></div>
+  `;
+  if (mode === 'daily') {
+    statsHTML += `<div class="result-stat"><div class="rs-label">Streak</div><div class="rs-val" style="color:var(--orange)">${stats.streak}</div></div>`;
+    statsHTML += `<div class="result-stat"><div class="rs-label">Best</div><div class="rs-val" style="color:var(--green)">${stats.best}</div></div>`;
+  } else if (mode === 'endless') {
+    statsHTML += `<div class="result-stat"><div class="rs-label">Best Ever</div><div class="rs-val" style="color:var(--green)">${stats.best}</div></div>`;
+    statsHTML += `<div class="result-stat"><div class="rs-label">Games</div><div class="rs-val" style="color:var(--purple)">${stats.games}</div></div>`;
+  }
+  $('result-stats').innerHTML = statsHTML;
+  $('result-emoji').textContent = emoji;
+
+  lastResultText = buildShareText(finalLevel, finalScore, mode, emoji);
+
+}
+
+function buildEmoji(finalLevel) {
+  // Build emoji sequence representation
+  const shown = Math.min(sequence.length, 18);
+  let emoji = '';
+  for (let i = 0; i < shown; i++) {
+    emoji += PAD_EMOJIS[sequence[i]];
+  }
+  if (sequence.length > 18) emoji += '...';
+  return emoji;
+}
+
+function buildShareText(finalLevel, finalScore, mode, emoji) {
+  let text = '';
+  if (mode === 'daily') {
+    text += `\u26A1 SEQUENCE STORM \u2014 Day ${getDayNumber()}\n`;
+    text += `Sequence: ${finalLevel} | \u{1F525} ${stats.streak}-day streak\n`;
+  } else {
+    text += `\u26A1 SEQUENCE STORM \u2014 Endless\n`;
+    text += `Level: ${finalLevel} | Score: ${finalScore}\n`;
+  }
+  text += emoji + '\n';
+  text += 'sequencestorm.pages.dev';
+  return text;
+}
+
+// ===================== SHARING =====================
+async function shareResult() {
+  if (navigator.share) {
+    try {
+      await navigator.share({ text: lastResultText });
+      return;
+    } catch {}
+  }
+  try {
+    await navigator.clipboard.writeText(lastResultText);
+    showToast('Copied to clipboard!');
+  } catch {
+    showToast('Could not copy');
+  }
+}
+
+function challengeFriend() {
+  const seed = gameMode === 'daily' ? getDaySeed() : (lastSeed || Math.floor(Math.random() * 999999));
+  lastSeed = seed;
+  const url = window.location.origin + window.location.pathname + '?challenge=' + seed;
+  const text = `\u26A1 I challenge you to SEQUENCE STORM!\n${url}`;
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => showToast('Challenge link copied!')).catch(() => {});
+  }
+}
+
+function showToast(msg) {
+  const t = $('share-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function playAgain() {
+  if (gameMode === 'daily') {
+    // Can't replay daily
+    backToTitle();
+    return;
+  }
+  startGame(gameMode);
+}
+
+// ===================== HUD =====================
+function updateHUD() {
+  $('hud-level').textContent = level;
+  $('hud-score').textContent = score;
+  $('hud-lives').textContent = '\u2764'.repeat(Math.max(0, lives));
+}
+
+function setStatus(text, cls) {
+  const el = $('game-status');
+  el.textContent = text;
+  el.className = 'game-status ' + (cls || '');
+}
+
+function renderDots() {
+  const container = $('seq-dots');
+  container.innerHTML = '';
+  for (let i = 0; i < sequence.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'seq-dot' + (i === 0 ? ' current' : '');
+    container.appendChild(dot);
+  }
+}
+
+function markDot(idx, cls) {
+  const dots = $('seq-dots').children;
+  if (dots[idx]) {
+    dots[idx].classList.add(cls);
+    // highlight next
+    if (cls === 'done' && dots[idx + 1]) {
+      dots[idx + 1].classList.add('current');
+    }
+  }
+}
+
+function showCombo(text) {
+  const el = $('combo-pop');
+  el.textContent = text;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 900);
+}
+
+// ===================== PAD EVENTS =====================
+pads().forEach(pad => {
+  const idx = parseInt(pad.dataset.pad);
+  pad.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    handlePadPress(idx);
+  });
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if ($('settings-overlay').classList.contains('active')) { hideSettings(); return; }
+    if ($('how-overlay').classList.contains('active')) { hideHow(); return; }
+    if ($('game-screen').classList.contains('active')) { backToTitle(); return; }
+  }
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= 6) {
+    handlePadPress(num - 1);
+  }
+});
+
+// ===================== UTILS =====================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ===================== INIT =====================
+init();
+</script>
+</body>
+</html>

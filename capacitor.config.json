@@ -1,0 +1,11 @@
+{
+  "appId": "com.geekmagnetinc.sequencestorm",
+  "appName": "Sequence Storm",
+  "webDir": "www",
+  "ios": {
+    "packageClassList": [
+      "AdMobPlugin",
+      "ICloudSyncPlugin"
+    ]
+  }
+}
