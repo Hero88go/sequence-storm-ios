@@ -1016,15 +1016,7 @@ function toggleSetting(key) {
 
 // ===================== START GAME =====================
 function startGame(mode) {
-  // Daily: check if already done
-  if (mode === 'daily') {
-    const dr = loadDailyResult();
-    if (dr) {
-      showResult(dr.level, dr.score, 'daily', dr.emoji);
-      return;
-    }
-  }
-
+  // Daily mode is now infinite — no once-per-day lock
   gameMode = mode;
   sequence = [];
   playerIndex = 0;
@@ -1420,7 +1412,7 @@ init();
   };
   const BANNER_AD_ID       = REAL_IDS.banner       || TEST_IDS.banner;
   const INTERSTITIAL_AD_ID = REAL_IDS.interstitial || TEST_IDS.interstitial;
-  const INTERSTITIAL_EVERY = 3;
+  const INTERSTITIAL_EVERY = 5;
 
   let interstitialReady = false;
 
